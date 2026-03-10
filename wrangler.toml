@@ -1,0 +1,24 @@
+# ============================================================
+# wrangler.toml  --  river-level-display
+#
+# Cloudflare Workers configuration for the NOAA river gauge
+# hydrograph display.
+#
+# Two environments are defined:
+#   (default)  -> river-level-display          (production)
+#   staging    -> river-level-display-staging  (staging)
+#
+# Deployment is handled automatically by GitHub Actions.
+# See .github/workflows/deploy.yml
+# ============================================================
+
+name                = "river-level-display"
+main                = "src/index.js"
+compatibility_date  = "2024-09-23"
+
+# No secrets are required for this Worker.
+# The NOAA NWPS API is public and requires no authentication.
+
+# ---- Staging environment ----
+[env.staging]
+name = "river-level-display-staging"
