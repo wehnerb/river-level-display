@@ -1,0 +1,55 @@
+# ============================================================
+# .github/workflows/deploy.yml  --  river-level-display
+#
+# Automatic deployment pipeline for the river-level-display
+# Cloudflare Worker.
+#
+# Branch strategy:
+#   staging -> river-level-display-staging.bwehner.workers.dev
+#   main    -> river-level-display.bwehner.workers.dev
+#
+# Required GitHub repository secrets (Settings -> Secrets and
+# variables -> Actions):
+#   CLOUDFLARE_API_TOKEN   - Cloudflare API token with Workers
+#                            edit permission
+#   CLOUDFLARE_ACCOUNT_ID  - Cloudflare account ID
+#
+# These are the same shared secrets used by the other Worker
+# projects in this system.
+# ============================================================
+
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Workers
+    runs-on: ubuntu-latest
+
+    steps:
+      # ---- Check out the repository ----
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ---- Deploy staging branch to the staging Worker ----
+      - name: Deploy to staging
+        if: github.ref == 'refs/heads/staging'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --env staging
+
+      # ---- Deploy main branch to the production Worker ----
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
