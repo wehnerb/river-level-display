@@ -28,7 +28,6 @@
 // The key is what callers pass as the ?gauge= URL parameter.
 const GAUGES = {
   'fargo': { id: 'FGON8', name: 'Red River at Fargo' },
-  'test': { id: 'SHLI3', name: 'Test Flooding Gauge' },
   // Example for a future gauge:
   // 'moorhead': { id: 'MHDN8', name: 'Red River at Moorhead' },
 };
@@ -55,6 +54,21 @@ const Y_AXIS_PADDING = 1.5;
 // closer than this distance will appear, giving a "lookahead"
 // that shows what is coming as the river rises.
 const THRESHOLD_LOOKAHEAD_FT = 3.0;
+
+// Crest detection settings.
+// A crest is labeled when the river rises to a peak and is
+// confirmed to be falling on the other side.
+//
+// CREST_MIN_FLANK_POINTS: Number of data points required on each
+//   side of the peak.  At NOAA's 30-min observation interval, 4
+//   points represents ~2 hours of trend confirmation on each side.
+//
+// CREST_MIN_PROMINENCE_FT: The peak must be at least this many
+//   feet above the average of the flank points on each side.
+//   Prevents labeling noise or essentially flat conditions as a
+//   crest.  0.5 ft filters trivial bumps while catching real events.
+const CREST_MIN_FLANK_POINTS  = 4;
+const CREST_MIN_PROMINENCE_FT = 0.5;
 
 // Layout pixel dimensions.  These match the station display
 // column widths defined in the station-image-proxy project.
@@ -199,7 +213,34 @@ export default {
       const floodStatus = getFloodStatus(currentStage, thresholds);
 
       // ----------------------------------------------------------
-      // 7. Build the data payload that will be injected into the
+      // 7. Detect crest in the combined observed + forecast series.
+      //    Returns null if no confirmed crest is present, or an
+      //    object { t, v, timeLabel } if one is found.
+      //    The combined series is sorted by time before passing in.
+      // ----------------------------------------------------------
+      const combined = observed
+        .concat(forecast)
+        .sort((a, b) => a.t - b.t);
+
+      const crestPoint = findCrest(combined);
+      const crest = crestPoint
+        ? {
+            t: crestPoint.t,
+            v: crestPoint.v,
+            timeLabel: new Date(crestPoint.t).toLocaleString('en-US', {
+              timeZone: DISPLAY_TZ,
+              weekday: 'short',
+              month:   'short',
+              day:     'numeric',
+              hour:    'numeric',
+              minute:  '2-digit',
+              hour12:  true,
+            }) + ' CT',
+          }
+        : null;
+
+      // ----------------------------------------------------------
+      // 8. Build the data payload that will be injected into the
       //    HTML page as a JSON literal.  The client-side canvas
       //    renderer reads this object directly -- no further API
       //    calls are made from the browser.
@@ -213,6 +254,7 @@ export default {
         floodStatus,
         gaugeName: gauge.name,
         gaugeId:   gauge.id,
+        crest,
         nowMs: now,
       };
 
@@ -258,6 +300,61 @@ function getFloodStatus(stage, thresholds) {
   if (thresholds.action   !== null && stage >= thresholds.action)
     return { label: 'ACTION STAGE',   color: FLOOD_COLORS.action };
   return   { label: 'NORMAL',         color: '#22aa55' };
+}
+
+
+// ============================================================
+// HELPER: Detect a confirmed crest in a time-sorted array of
+// { t, v } points.
+//
+// A crest is only labeled when both conditions hold:
+//   1. The peak has at least CREST_MIN_FLANK_POINTS data points
+//      on each side (guarantees a trend is visible, not noise).
+//   2. The peak value exceeds the average of those flanking points
+//      by at least CREST_MIN_PROMINENCE_FT on both sides (confirms
+//      the river was genuinely rising before and falling after).
+//
+// Returns the { t, v } point of the crest, or null if no confirmed
+// crest exists.  Null is the expected result during a steady rise
+// (no falling tail yet) or during normal low-water conditions.
+// ============================================================
+function findCrest(combined) {
+  const n     = combined.length;
+  const flank = CREST_MIN_FLANK_POINTS;
+
+  // Need enough total points to have a meaningful flank on each side
+  if (n < flank * 2 + 1) return null;
+
+  // Find the index of the global maximum value
+  let maxIdx = 0;
+  for (let i = 1; i < n; i++) {
+    if (combined[i].v > combined[maxIdx].v) maxIdx = i;
+  }
+
+  // The peak must not be at or too close to either end of the series
+  if (maxIdx < flank || maxIdx > n - flank - 1) return null;
+
+  // Compute average of the flank points immediately before the peak
+  let beforeSum = 0;
+  for (let i = maxIdx - flank; i < maxIdx; i++) {
+    beforeSum += combined[i].v;
+  }
+  const beforeAvg = beforeSum / flank;
+
+  // Compute average of the flank points immediately after the peak
+  let afterSum = 0;
+  for (let i = maxIdx + 1; i <= maxIdx + flank; i++) {
+    afterSum += combined[i].v;
+  }
+  const afterAvg = afterSum / flank;
+
+  const crestVal = combined[maxIdx].v;
+
+  // Reject if the peak is not prominently above either flank
+  if (crestVal - beforeAvg < CREST_MIN_PROMINENCE_FT) return null;
+  if (crestVal - afterAvg  < CREST_MIN_PROMINENCE_FT) return null;
+
+  return combined[maxIdx];
 }
 
 
@@ -318,6 +415,9 @@ function buildHtml(layout, layoutKey, data) {
 'var IS_WIDE    = ' + isWide   + ';' +
 'var Y_PAD      = ' + Y_AXIS_PADDING + ';' +
 'var LOOKAHEAD  = ' + THRESHOLD_LOOKAHEAD_FT + ';' +
+
+// Crest detection constants injected from server-side config
+'var CREST_COLOR = "#ff66ff";' +   // Violet -- distinct from all flood/line colors
 
 // Flood threshold color map
 'var FLOOD_COLORS = {' +
@@ -662,6 +762,11 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.setLineDash([]);' +
 '  }' +
 
+  // ----- Crest marker (drawn on top of data lines, beneath legend) -----
+'  if (DATA.crest !== null) {' +
+'    drawCrest(cx, cy, cw, ch, toX, toY, baseFont, labelFont);' +
+'  }' +
+
   // ----- Legend -----
 '  drawLegend(cx, cy, labelFont);' +
 
@@ -670,6 +775,96 @@ function buildHtml(layout, layoutKey, data) {
 '  ctx.lineWidth = 1;' +
 '  ctx.setLineDash([]);' +
 '  ctx.beginPath(); ctx.rect(cx, cy, cw, ch); ctx.stroke();' +
+'}' +
+
+// ============================================================
+// DRAW CREST MARKER
+// Draws a vertical dashed line, a diamond marker, and a label
+// box at the confirmed crest point.  The label box is nudged
+// horizontally if the crest is near the chart edges.
+// ============================================================
+'function drawCrest(cx, cy, cw, ch, toX, toY, baseFont, labelFont) {' +
+'  var cx2 = toX(DATA.crest.t);' +
+'  var cy2 = toY(DATA.crest.v);' +
+
+  // Only render if the crest X falls within the visible chart area
+'  if (cx2 < cx || cx2 > cx + cw) return;' +
+
+  // Dashed vertical line from crest point to top of chart
+'  ctx.strokeStyle = CREST_COLOR;' +
+'  ctx.lineWidth = 1;' +
+'  ctx.setLineDash([4, 4]);' +
+'  ctx.globalAlpha = 0.5;' +
+'  ctx.beginPath(); ctx.moveTo(cx2, cy); ctx.lineTo(cx2, cy2); ctx.stroke();' +
+'  ctx.setLineDash([]); ctx.globalAlpha = 1.0;' +
+
+  // Diamond marker at the crest point
+'  var ds = IS_NARROW ? 5 : IS_WIDE ? 10 : 7;' +
+'  ctx.fillStyle = CREST_COLOR;' +
+'  ctx.beginPath();' +
+'  ctx.moveTo(cx2,      cy2 - ds);' +
+'  ctx.lineTo(cx2 + ds, cy2);' +
+'  ctx.lineTo(cx2,      cy2 + ds);' +
+'  ctx.lineTo(cx2 - ds, cy2);' +
+'  ctx.closePath();' +
+'  ctx.fill();' +
+
+  // Label box dimensions
+'  var lFont      = IS_NARROW ? 9  : IS_WIDE ? 14 : 11;' +
+'  var lFontLarge = IS_NARROW ? 11 : IS_WIDE ? 18 : 14;' +
+'  var boxPadX    = IS_NARROW ? 5  : IS_WIDE ? 10 : 7;' +
+'  var boxPadY    = IS_NARROW ? 4  : IS_WIDE ? 7  : 5;' +
+'  var lineH      = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
+
+  // Measure the widest line (the stage value line is usually widest)
+'  ctx.font = lFontLarge + "px Arial";' +
+'  var stageText = DATA.crest.v.toFixed(2) + " ft";' +
+'  var stageW    = ctx.measureText(stageText).width;' +
+'  ctx.font = lFont + "px Arial";' +
+'  var crestW    = ctx.measureText("CREST").width;' +
+'  var timeW     = ctx.measureText(DATA.crest.timeLabel).width;' +
+'  var boxW      = Math.max(stageW, crestW, timeW) + boxPadX * 2;' +
+'  var boxH      = lineH * 3 + boxPadY * 2;' +
+
+  // Default: label sits above the diamond; flip below if near chart top
+'  var boxY = cy2 - ds - boxH - 6;' +
+'  if (boxY < cy + 2) { boxY = cy2 + ds + 6; }' +
+
+  // Default: label is centred on the crest X; nudge left/right at edges
+'  var boxX = cx2 - Math.round(boxW / 2);' +
+'  if (boxX < cx + 2) { boxX = cx + 2; }' +
+'  if (boxX + boxW > cx + cw - 2) { boxX = cx + cw - boxW - 2; }' +
+
+  // Background box
+'  ctx.fillStyle = "rgba(10, 14, 30, 0.88)";' +
+'  roundRect(ctx, boxX, boxY, boxW, boxH, 3);' +
+'  ctx.fill();' +
+
+  // Box border
+'  ctx.strokeStyle = CREST_COLOR;' +
+'  ctx.lineWidth = IS_NARROW ? 1 : 1.5;' +
+'  ctx.globalAlpha = 0.7;' +
+'  roundRect(ctx, boxX, boxY, boxW, boxH, 3);' +
+'  ctx.stroke();' +
+'  ctx.globalAlpha = 1.0;' +
+
+  // "CREST" label (top line)
+'  ctx.font = lFont + "px Arial";' +
+'  ctx.fillStyle = CREST_COLOR;' +
+'  ctx.textAlign = "center";' +
+'  ctx.textBaseline = "top";' +
+'  var labelCX = boxX + Math.round(boxW / 2);' +
+'  ctx.fillText("CREST", labelCX, boxY + boxPadY);' +
+
+  // Stage value (middle line, larger font)
+'  ctx.font = "bold " + lFontLarge + "px Arial";' +
+'  ctx.fillStyle = "#ffffff";' +
+'  ctx.fillText(stageText, labelCX, boxY + boxPadY + lineH);' +
+
+  // Timestamp (bottom line)
+'  ctx.font = lFont + "px Arial";' +
+'  ctx.fillStyle = "#aabbcc";' +
+'  ctx.fillText(DATA.crest.timeLabel, labelCX, boxY + boxPadY + lineH * 2);' +
 '}' +
 
 // ============================================================
@@ -712,6 +907,27 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.font = lFont + "px Arial";' +
 '    ctx.fillStyle = "#8899bb";' +
 '    ctx.fillText("NWS Forecast", lx + lineLen + 4, ly + Math.round(lh * 0.5));' +
+'    ly += lh;' +
+'  }' +
+
+  // Crest marker legend (only drawn if a crest was detected)
+'  if (DATA.crest !== null) {' +
+'    var ds2    = IS_NARROW ? 4 : IS_WIDE ? 7 : 5;' +
+'    var midX   = lx + Math.round(lineLen / 2);' +
+'    var midY   = ly + Math.round(lh * 0.5);' +
+'    ctx.fillStyle = CREST_COLOR;' +
+'    ctx.beginPath();' +
+'    ctx.moveTo(midX,       midY - ds2);' +
+'    ctx.lineTo(midX + ds2, midY);' +
+'    ctx.lineTo(midX,       midY + ds2);' +
+'    ctx.lineTo(midX - ds2, midY);' +
+'    ctx.closePath();' +
+'    ctx.fill();' +
+'    ctx.font = lFont + "px Arial";' +
+'    ctx.fillStyle = "#8899bb";' +
+'    ctx.textAlign = "left";' +
+'    ctx.textBaseline = "middle";' +
+'    ctx.fillText("Forecast Crest", lx + lineLen + 4, midY);' +
 '  }' +
 '  ctx.globalAlpha = 1.0;' +
 '}' +
