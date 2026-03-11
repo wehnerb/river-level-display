@@ -28,7 +28,7 @@
 // The key is what callers pass as the ?gauge= URL parameter.
 const GAUGES = {
   'fargo': { id: 'FGON8', name: 'Red River at Fargo' },
-  'test': { id: 'BEDI3', name: 'Test Flooding Gauge' },
+  'test': { id: 'BEDI3', name: 'Test Flooding River Gauge' },
   // Example for a future gauge:
   // 'moorhead': { id: 'MHDN8', name: 'Red River at Moorhead' },
 };
@@ -335,23 +335,32 @@ function findCrest(combined) {
   // The peak must not be at or too close to either end of the series
   if (maxIdx < flank || maxIdx > n - flank - 1) return null;
 
-  // Compute average of the flank points immediately before the peak
+  // Compare the peak against the average of the FIRST and LAST flank
+  // points in the entire series -- not the adjacent points.
+  //
+  // Rivers crest gradually: the 4 points immediately beside a peak
+  // are nearly as high as the peak itself (e.g. 32.49 vs 32.50 ft),
+  // so an adjacent-point comparison would never clear the prominence
+  // threshold.  Using the series start/end correctly measures whether
+  // the river genuinely rose to a peak and is falling back down.
   let beforeSum = 0;
-  for (let i = maxIdx - flank; i < maxIdx; i++) {
+  for (let i = 0; i < flank; i++) {
     beforeSum += combined[i].v;
   }
   const beforeAvg = beforeSum / flank;
 
-  // Compute average of the flank points immediately after the peak
   let afterSum = 0;
-  for (let i = maxIdx + 1; i <= maxIdx + flank; i++) {
+  for (let i = n - flank; i < n; i++) {
     afterSum += combined[i].v;
   }
   const afterAvg = afterSum / flank;
 
   const crestVal = combined[maxIdx].v;
 
-  // Reject if the peak is not prominently above either flank
+  // Both the series start and series end must be significantly below
+  // the peak.  This confirms: (a) the river was rising before the
+  // crest, and (b) it is falling after -- the two conditions that
+  // define a genuine crest rather than a plateau or still-rising event.
   if (crestVal - beforeAvg < CREST_MIN_PROMINENCE_FT) return null;
   if (crestVal - afterAvg  < CREST_MIN_PROMINENCE_FT) return null;
 
@@ -440,16 +449,16 @@ function buildHtml(layout, layoutKey, data) {
 '  ctx.fillRect(0, 0, W, H);' +
 
   // Responsive font sizes
-'  var baseFont  = IS_NARROW ? 11 : IS_WIDE ? 18 : 13;' +
-'  var titleFont = IS_NARROW ? 14 : IS_WIDE ? 28 : 18;' +
-'  var stageFont = IS_NARROW ? 20 : IS_WIDE ? 52 : 34;' +
-'  var labelFont = IS_NARROW ? 9  : IS_WIDE ? 14 : 11;' +
+'  var baseFont  = IS_NARROW ? 12 : IS_WIDE ? 18 : 15;' +
+'  var titleFont = IS_NARROW ? 15 : IS_WIDE ? 28 : 21;' +
+'  var stageFont = IS_NARROW ? 22 : IS_WIDE ? 52 : 38;' +
+'  var labelFont = IS_NARROW ? 11 : IS_WIDE ? 14 : 13;' +
 
   // Header height reserved for station name / stage / status badge
-'  var headerH = IS_NARROW ? 72 : IS_WIDE ? 120 : 92;' +
+'  var headerH = IS_NARROW ? 80 : IS_WIDE ? 120 : 104;' +
 
   // Footer height reserved for attribution text
-'  var footerH = IS_NARROW ? 16 : IS_WIDE ? 26 : 20;' +
+'  var footerH = IS_NARROW ? 18 : IS_WIDE ? 26 : 22;' +
 
 '  drawHeader(headerH, titleFont, stageFont, baseFont, labelFont);' +
 '  drawFooter(H - footerH, footerH, labelFont);' +
@@ -458,7 +467,7 @@ function buildHtml(layout, layoutKey, data) {
 '  var chartTop    = headerH + 6;' +
 '  var chartBottom = H - footerH - 6;' +
   // Left margin must be wide enough for Y axis labels
-'  var chartLeft   = IS_NARROW ? 40 : IS_WIDE ? 68 : 52;' +
+'  var chartLeft   = IS_NARROW ? 44 : IS_WIDE ? 68 : 58;' +
 '  var chartRight  = W - (IS_NARROW ? 8 : IS_WIDE ? 16 : 10);' +
 
 '  drawChartArea(' +
@@ -638,8 +647,8 @@ function buildHtml(layout, layoutKey, data) {
 '  ctx.fillText("Stage (ft)", 0, 0);' +
 '  ctx.restore();' +
 
-  // ----- X axis grid lines and labels (every 12 hours) -----
-'  var xTicks = calc12HourTicks(tMin, tMax);' +
+  // ----- X axis grid lines and labels (adaptive interval) -----
+'  var xTicks = calcAdaptiveTicks(tMin, tMax, cw);' +
 '  ctx.strokeStyle = "#141e32";' +
 '  ctx.lineWidth = 1;' +
 '  xTicks.forEach(function(tick) {' +
@@ -676,7 +685,7 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.setLineDash([]); ctx.globalAlpha = 1.0;' +
 
     // Threshold label (right-aligned, just above the line)
-'    var lFont = IS_NARROW ? 8 : IS_WIDE ? 12 : 10;' +
+'    var lFont = IS_NARROW ? 9 : IS_WIDE ? 12 : 12;' +
 '    ctx.font = lFont + "px Arial";' +
 '    ctx.fillStyle = color;' +
 '    ctx.textAlign = "right";' +
@@ -811,8 +820,8 @@ function buildHtml(layout, layoutKey, data) {
 '  ctx.fill();' +
 
   // Label box dimensions
-'  var lFont      = IS_NARROW ? 9  : IS_WIDE ? 14 : 11;' +
-'  var lFontLarge = IS_NARROW ? 11 : IS_WIDE ? 18 : 14;' +
+'  var lFont      = IS_NARROW ? 10 : IS_WIDE ? 14 : 13;' +
+'  var lFontLarge = IS_NARROW ? 13 : IS_WIDE ? 18 : 16;' +
 '  var boxPadX    = IS_NARROW ? 5  : IS_WIDE ? 10 : 7;' +
 '  var boxPadY    = IS_NARROW ? 4  : IS_WIDE ? 7  : 5;' +
 '  var lineH      = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
@@ -875,7 +884,7 @@ function buildHtml(layout, layoutKey, data) {
 '  var pad     = IS_NARROW ? 6  : IS_WIDE ? 12 : 8;' +
 '  var lineLen = IS_NARROW ? 16 : IS_WIDE ? 26 : 20;' +
 '  var lh      = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
-'  var lFont   = IS_NARROW ? 9  : IS_WIDE ? 13 : 11;' +
+'  var lFont   = IS_NARROW ? 10 : IS_WIDE ? 13 : 13;' +
 '  var lx = cx + pad;' +
 '  var ly = cy + pad;' +
 '  ctx.globalAlpha = 0.8;' +
@@ -967,21 +976,44 @@ function buildHtml(layout, layoutKey, data) {
 '}' +
 
 // ============================================================
-// HELPER: Generate X-axis tick marks at 12-hour intervals.
+// HELPER: Generate X-axis tick marks at an adaptive interval.
+// The interval is chosen so labels never overlap: it snaps to
+// the smallest clean step (3h, 6h, 12h, 24h, 48h ...) that
+// keeps each label at least 80px away from its neighbours.
 // Labels are formatted in local (Central) time.
 // ============================================================
-'function calc12HourTicks(tMin, tMax) {' +
-'  var interval = 12 * 60 * 60 * 1000;' +
-'  var t = Math.ceil(tMin / interval) * interval;' +
+'function calcAdaptiveTicks(tMin, tMax, chartWidth) {' +
+'  var h           = 3600000;' +
+'  var minPitch    = 80;' +
+'  var maxLabels   = Math.max(2, Math.floor(chartWidth / minPitch));' +
+'  var idealMs     = (tMax - tMin) / maxLabels;' +
+'  var candidates  = [3*h, 6*h, 12*h, 24*h, 48*h, 72*h, 7*24*h];' +
+'  var interval    = candidates[candidates.length - 1];' +
+'  for (var ci = 0; ci < candidates.length; ci++) {' +
+'    if (candidates[ci] >= idealMs) { interval = candidates[ci]; break; }' +
+'  }' +
+'  var t     = Math.ceil(tMin / interval) * interval;' +
 '  var ticks = [];' +
 '  while (t <= tMax) {' +
 '    var d = new Date(t);' +
-'    var label = d.toLocaleString("en-US", {' +
-'      timeZone: "America/Chicago",' +
-'      weekday: "short",' +
-'      hour: "numeric",' +
-'      hour12: true' +
-'    });' +
+'    var label;' +
+'    if (interval >= 24 * h) {' +
+      // Wide spacing: show day name and date only (no time)
+'      label = d.toLocaleString("en-US", {' +
+'        timeZone: "America/Chicago",' +
+'        weekday: "short",' +
+'        month: "numeric",' +
+'        day: "numeric"' +
+'      });' +
+'    } else {' +
+      // Tight spacing: show day name and hour
+'      label = d.toLocaleString("en-US", {' +
+'        timeZone: "America/Chicago",' +
+'        weekday: "short",' +
+'        hour: "numeric",' +
+'        hour12: true' +
+'      });' +
+'    }' +
 '    ticks.push({ t: t, label: label });' +
 '    t += interval;' +
 '  }' +
