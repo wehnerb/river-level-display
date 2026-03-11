@@ -458,14 +458,12 @@ function buildHtml(layout, layoutKey, data) {
 '  var headerH = IS_NARROW ? 80 : IS_WIDE ? 120 : 104;' +
 
   // Footer height reserved for attribution text
-'  var footerH = IS_NARROW ? 18 : IS_WIDE ? 26 : 22;' +
 
 '  drawHeader(headerH, titleFont, stageFont, baseFont, labelFont);' +
-'  drawFooter(H - footerH, footerH, labelFont);' +
 
   // Chart occupies the space between header and footer
 '  var chartTop    = headerH + 6;' +
-'  var chartBottom = H - footerH - 6;' +
+'  var chartBottom = H - 10;' +
   // Left margin must be wide enough for Y axis labels
 '  var chartLeft   = IS_NARROW ? 44 : IS_WIDE ? 68 : 58;' +
 '  var chartRight  = W - (IS_NARROW ? 8 : IS_WIDE ? 16 : 10);' +
@@ -546,22 +544,6 @@ function buildHtml(layout, layoutKey, data) {
 // ============================================================
 // DRAW FOOTER  (attribution)
 // ============================================================
-'function drawFooter(y, footerH, labelFont) {' +
-'  ctx.fillStyle = "#080d1a";' +
-'  ctx.fillRect(0, y, W, footerH);' +
-'  ctx.strokeStyle = "#1a2540";' +
-'  ctx.lineWidth = 1;' +
-'  ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();' +
-'  ctx.font = labelFont + "px Arial";' +
-'  ctx.fillStyle = "#2a3a4a";' +
-'  ctx.textAlign = "center";' +
-'  ctx.textBaseline = "middle";' +
-'  ctx.fillText(' +
-'    "Data: NOAA National Water Prediction Service  |  Gauge " + DATA.gaugeId,' +
-'    Math.round(W / 2), y + Math.round(footerH / 2)' +
-'  );' +
-'}' +
-
 // ============================================================
 // DRAW CHART AREA  (axes, grid, threshold lines, data lines)
 // ============================================================
@@ -778,7 +760,48 @@ function buildHtml(layout, layoutKey, data) {
 '  }' +
 
   // ----- Legend -----
-'  drawLegend(cx, cy, cw, labelFont);' +
+  // Compute a lyStart that avoids overlapping any visible threshold
+  // line.  The legend is anchored to the top-right, so we scan
+  // downward from cy + pad until the legend's full height fits
+  // cleanly between two threshold lines (or clears them all).
+'  (function() {' +
+'    var lgPad    = IS_NARROW ? 6  : IS_WIDE ? 12 : 8;' +
+'    var lgLh     = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
+'    var lgBuffer = IS_NARROW ? 4  : IS_WIDE ? 6  : 5;' +
+    // Row count: Observed is always shown; Forecast and Crest are conditional
+'    var lgRows   = 1' +
+'      + (DATA.forecast.length > 0 ? 1 : 0)' +
+'      + (DATA.crest !== null      ? 1 : 0);' +
+'    var lgH = lgRows * lgLh + lgPad;' +
+    // Collect Y pixel positions of all visible threshold lines
+'    var threshYs = [];' +
+'    var thKeys = ["action", "minor", "moderate", "major"];' +
+'    thKeys.forEach(function(k) {' +
+'      if (visibleThresholds[k] !== undefined) {' +
+'        threshYs.push(toY(visibleThresholds[k]));' +
+'      }' +
+'    });' +
+    // Walk lyStart downward until no threshold falls inside the legend box.
+    // Each iteration shifts below the offending line plus a small buffer.
+'    var lyStart = cy + lgPad;' +
+'    var maxTries = threshYs.length + 1;' +
+'    for (var ti = 0; ti < maxTries; ti++) {' +
+'      var conflict = false;' +
+'      for (var yi = 0; yi < threshYs.length; yi++) {' +
+'        var ty = threshYs[yi];' +
+          // A threshold conflicts if it falls inside the legend's Y range
+'        if (ty >= lyStart - lgBuffer && ty <= lyStart + lgH + lgBuffer) {' +
+'          lyStart = ty + lgBuffer;' +
+'          conflict = true;' +
+'          break;' +
+'        }' +
+'      }' +
+'      if (!conflict) break;' +
+'    }' +
+    // Clamp so legend never extends below the chart bottom
+'    lyStart = Math.min(lyStart, cy + ch - lgH - lgPad);' +
+'    drawLegend(cx, cy, cw, lyStart, labelFont);' +
+'  })();' +
 
   // ----- Chart border -----
 '  ctx.strokeStyle = "#1a2840";' +
@@ -880,13 +903,14 @@ function buildHtml(layout, layoutKey, data) {
 // ============================================================
 // DRAW LEGEND  (top-left corner of chart area)
 // ============================================================
-'function drawLegend(cx, cy, cw, labelFont) {' +
+'function drawLegend(cx, cy, cw, lyStart, labelFont) {' +
 '  var pad     = IS_NARROW ? 6  : IS_WIDE ? 12 : 8;' +
 '  var lineLen = IS_NARROW ? 16 : IS_WIDE ? 26 : 20;' +
 '  var lh      = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
 '  var lFont   = IS_NARROW ? 10 : IS_WIDE ? 13 : 13;' +
 '  var lx = cx + cw - pad;' +
-'  var ly = cy + pad;' +
+  // lyStart is computed by the caller to avoid threshold line conflicts
+'  var ly = lyStart;' +
 '  ctx.globalAlpha = 0.8;' +
 
   // Observed line legend
