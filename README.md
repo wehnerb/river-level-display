@@ -1,4 +1,4 @@
-# river-level-display
+# River Level Display
 
 A Cloudflare Worker that fetches live river gauge data from the NOAA NWPS public API and returns a self-contained HTML page with a canvas-rendered hydrograph. Designed as a single endpoint URL for fire station display screens that cannot run local scripts or be configured beyond a URL.
 
@@ -40,7 +40,7 @@ The page auto-refreshes every 15 minutes, matching the NOAA data update cycle.
 | `wide` | 1735 | 720 | Full-width single column |
 | `split` | 852 | 720 | Two-column display (default) |
 | `tri` | 558 | 720 | Three-column display |
-| `full` | 1920 | 1080 | Full-screen display |
+| `full` | 1920 | 1075 | Full-screen display |
 
 ### Example URLs
 
