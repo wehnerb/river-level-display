@@ -463,7 +463,8 @@ function buildHtml(layout, layoutKey, data) {
 
   // Chart occupies the space between header and footer
 '  var chartTop    = headerH + 6;' +
-'  var chartBottom = H - 10;' +
+'  var xLabelH    = IS_NARROW ? 20 : IS_WIDE ? 24 : 22;' +
+'  var chartBottom = H - xLabelH;' +
   // Left margin must be wide enough for Y axis labels
 '  var chartLeft   = IS_NARROW ? 44 : IS_WIDE ? 68 : 58;' +
 '  var chartRight  = W - (IS_NARROW ? 8 : IS_WIDE ? 16 : 10);' +
