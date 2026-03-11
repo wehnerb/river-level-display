@@ -28,7 +28,6 @@
 // The key is what callers pass as the ?gauge= URL parameter.
 const GAUGES = {
   'fargo': { id: 'FGON8', name: 'Red River at Fargo' },
-  'test': { id: 'BEDI3', name: 'Test Flooding River Gauge' },
   // Example for a future gauge:
   // 'moorhead': { id: 'MHDN8', name: 'Red River at Moorhead' },
 };
