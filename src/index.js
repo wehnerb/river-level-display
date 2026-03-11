@@ -76,7 +76,7 @@ const LAYOUTS = {
   wide:  { width: 1735, height: 720  },  // full-width single column
   split: { width: 852,  height: 720  },  // two-column display (default)
   tri:   { width: 558,  height: 720  },  // three-column display
-  full:  { width: 1920, height: 1080 },  // full-screen display
+  full:  { width: 1920, height: 1075 },  // full-screen display
 };
 const DEFAULT_LAYOUT = 'split';
 
@@ -266,8 +266,13 @@ export default {
       return new Response(html, {
         headers: {
           'Content-Type':  'text/html; charset=utf-8',
-          // Allow Cloudflare edge and the browser to cache the page
-          'Cache-Control': 'public, max-age=' + CACHE_SECONDS,
+          // Do NOT cache the rendered HTML page in the browser or at the
+          // Cloudflare edge.  The meta refresh tag fires every CACHE_SECONDS;
+          // if the browser served a cached copy on refresh instead of making
+          // a real network request, the displayed data would never update.
+          // The upstream NOAA fetch is separately cached by Cloudflare via
+          // cf.cacheTtl in fetchOpts, so NOAA API load is still controlled.
+          'Cache-Control': 'no-store',
         },
       });
 
