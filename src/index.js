@@ -68,7 +68,7 @@ const THRESHOLD_LOOKAHEAD_FT = 3.0;
 //   Prevents labeling noise or essentially flat conditions as a
 //   crest.  0.5 ft filters trivial bumps while catching real events.
 const CREST_MIN_FLANK_POINTS  = 8;
-const CREST_MIN_PROMINENCE_FT = 0.01;
+const CREST_MIN_PROMINENCE_FT = 0.05;
 
 // Layout pixel dimensions.  These match the station display
 // column widths defined in the station-image-proxy project.
