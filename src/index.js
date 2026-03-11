@@ -778,7 +778,7 @@ function buildHtml(layout, layoutKey, data) {
 '  }' +
 
   // ----- Legend -----
-'  drawLegend(cx, cy, labelFont);' +
+'  drawLegend(cx, cy, cw, labelFont);' +
 
   // ----- Chart border -----
 '  ctx.strokeStyle = "#1a2840";' +
@@ -880,7 +880,7 @@ function buildHtml(layout, layoutKey, data) {
 // ============================================================
 // DRAW LEGEND  (top-left corner of chart area)
 // ============================================================
-'function drawLegend(cx, cy, labelFont) {' +
+'function drawLegend(cx, cy, cw, labelFont) {' +
 '  var pad     = IS_NARROW ? 6  : IS_WIDE ? 12 : 8;' +
 '  var lineLen = IS_NARROW ? 16 : IS_WIDE ? 26 : 20;' +
 '  var lh      = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
