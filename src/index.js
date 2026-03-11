@@ -885,7 +885,7 @@ function buildHtml(layout, layoutKey, data) {
 '  var lineLen = IS_NARROW ? 16 : IS_WIDE ? 26 : 20;' +
 '  var lh      = IS_NARROW ? 12 : IS_WIDE ? 20 : 15;' +
 '  var lFont   = IS_NARROW ? 10 : IS_WIDE ? 13 : 13;' +
-'  var lx = cx + pad;' +
+'  var lx = cx + cw - pad;' +
 '  var ly = cy + pad;' +
 '  ctx.globalAlpha = 0.8;' +
 
@@ -894,14 +894,14 @@ function buildHtml(layout, layoutKey, data) {
 '  ctx.lineWidth = IS_NARROW ? 1.5 : 2;' +
 '  ctx.setLineDash([]);' +
 '  ctx.beginPath();' +
-'  ctx.moveTo(lx, ly + Math.round(lh * 0.5));' +
-'  ctx.lineTo(lx + lineLen, ly + Math.round(lh * 0.5));' +
+'  ctx.moveTo(lx - lineLen, ly + Math.round(lh * 0.5));' +
+'  ctx.lineTo(lx,           ly + Math.round(lh * 0.5));' +
 '  ctx.stroke();' +
 '  ctx.font = lFont + "px Arial";' +
 '  ctx.fillStyle = "#8899bb";' +
-'  ctx.textAlign = "left";' +
+'  ctx.textAlign = "right";' +
 '  ctx.textBaseline = "middle";' +
-'  ctx.fillText("Observed", lx + lineLen + 4, ly + Math.round(lh * 0.5));' +
+'  ctx.fillText("Observed", lx - lineLen - 4, ly + Math.round(lh * 0.5));' +
 '  ly += lh;' +
 
   // Forecast line legend (only drawn if forecast data exists)
@@ -910,21 +910,21 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.lineWidth = IS_NARROW ? 1.5 : 2;' +
 '    ctx.setLineDash([5, 3]);' +
 '    ctx.beginPath();' +
-'    ctx.moveTo(lx, ly + Math.round(lh * 0.5));' +
-'    ctx.lineTo(lx + lineLen, ly + Math.round(lh * 0.5));' +
+'    ctx.moveTo(lx - lineLen, ly + Math.round(lh * 0.5));' +
+'    ctx.lineTo(lx,           ly + Math.round(lh * 0.5));' +
 '    ctx.stroke();' +
 '    ctx.setLineDash([]);' +
 '    ctx.font = lFont + "px Arial";' +
 '    ctx.fillStyle = "#8899bb";' +
-'    ctx.fillText("NWS Forecast", lx + lineLen + 4, ly + Math.round(lh * 0.5));' +
+'    ctx.fillText("NWS Forecast", lx - lineLen - 4, ly + Math.round(lh * 0.5));' +
 '    ly += lh;' +
 '  }' +
 
   // Crest marker legend (only drawn if a crest was detected)
 '  if (DATA.crest !== null) {' +
-'    var ds2    = IS_NARROW ? 4 : IS_WIDE ? 7 : 5;' +
-'    var midX   = lx + Math.round(lineLen / 2);' +
-'    var midY   = ly + Math.round(lh * 0.5);' +
+'    var ds2  = IS_NARROW ? 4 : IS_WIDE ? 7 : 5;' +
+'    var midX = lx - Math.round(lineLen / 2);' +
+'    var midY = ly + Math.round(lh * 0.5);' +
 '    ctx.fillStyle = CREST_COLOR;' +
 '    ctx.beginPath();' +
 '    ctx.moveTo(midX,       midY - ds2);' +
@@ -935,9 +935,9 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.fill();' +
 '    ctx.font = lFont + "px Arial";' +
 '    ctx.fillStyle = "#8899bb";' +
-'    ctx.textAlign = "left";' +
+'    ctx.textAlign = "right";' +
 '    ctx.textBaseline = "middle";' +
-'    ctx.fillText("Forecast Crest", lx + lineLen + 4, midY);' +
+'    ctx.fillText("Forecast Crest", lx - lineLen - 4, midY);' +
 '  }' +
 '  ctx.globalAlpha = 1.0;' +
 '}' +
