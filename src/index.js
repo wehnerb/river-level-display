@@ -269,28 +269,38 @@ export default {
       // 8. Render and return the HTML page
       // ----------------------------------------------------------
       const html = buildHtml(layout, layoutKey, chartData);
-
+         
       return new Response(html, {
-        headers: {
-          'Content-Type':  'text/html; charset=utf-8',
-          // Do NOT cache the rendered HTML page in the browser or at the
+  headers: {
+    'Content-Type':           'text/html; charset=utf-8',
+     // Do NOT cache the rendered HTML page in the browser or at the
           // Cloudflare edge.  The meta refresh tag fires every CACHE_SECONDS;
           // if the browser served a cached copy on refresh instead of making
           // a real network request, the displayed data would never update.
           // The upstream NOAA fetch is separately cached by Cloudflare via
           // cf.cacheTtl in fetchOpts, so NOAA API load is still controlled.
-          'Cache-Control': 'no-store',
-        },
-      });
+    'Cache-Control':          'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options':        'SAMEORIGIN',
+    'Referrer-Policy':        'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';",
+  },
+});
 
     } catch (err) {
       // Return a styled error page rather than a raw 500 response.
       // The page auto-refreshes every 60 seconds so it will recover
       // as soon as the upstream API becomes available again.
       return new Response(buildErrorHtml(), {
-        status: 200, // Return 200 so the display does not blank out
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+  status: 200, // return 200 so the display does not blank out
+  headers: {
+    'Content-Type':           'text/html; charset=utf-8',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options':        'SAMEORIGIN',
+    'Referrer-Policy':        'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline';",
+  },
+});
     }
   },
 };
