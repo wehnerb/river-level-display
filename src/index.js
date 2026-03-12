@@ -129,7 +129,7 @@ export default {
       const fetchOpts = {
         headers: {
           // Identify the client to NOAA per their API guidance
-          'User-Agent': 'FargoFireDept-StationDisplay/1.0 (contact: bwehner@fargond.gov)',
+          'User-Agent': 'FargoFireDept-StationDisplay/1.0',
         },
         cf: { cacheTtl: CACHE_SECONDS },
       };
