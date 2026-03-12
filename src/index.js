@@ -38,7 +38,7 @@ const NOAA_BASE = 'https://api.water.noaa.gov/nwps/v1';
 
 // How many hours of observed history to show on the chart.
 // Combined with any available NWS forecast data.
-const OBSERVED_HOURS = 72;
+const OBSERVED_HOURS = 120;
 
 // How long (seconds) Cloudflare caches the Worker's response.
 // NOAA updates gauge data every 30 minutes, so 15 minutes
@@ -68,7 +68,7 @@ const THRESHOLD_LOOKAHEAD_FT = 3.0;
 //   Prevents labeling noise or essentially flat conditions as a
 //   crest.  0.5 ft filters trivial bumps while catching real events.
 const CREST_MIN_FLANK_POINTS  = 4;
-const CREST_MIN_PROMINENCE_FT = 0.5;
+const CREST_MIN_PROMINENCE_FT = 0.05;
 
 // Layout pixel dimensions.  These match the station display
 // column widths defined in the station-image-proxy project.
@@ -129,7 +129,7 @@ export default {
       const fetchOpts = {
         headers: {
           // Identify the client to NOAA per their API guidance
-          'User-Agent': 'FargoFireDept-StationDisplay/1.0 (contact: bwehner@fargond.gov)',
+          'User-Agent': 'FargoFireDept-StationDisplay/1.0',
         },
         cf: { cacheTtl: CACHE_SECONDS },
       };
@@ -966,7 +966,7 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.fillStyle = "#8899bb";' +
 '    ctx.textAlign = "right";' +
 '    ctx.textBaseline = "middle";' +
-'    ctx.fillText("Forecast Crest", lx - lineLen - 4, midY);' +
+'    ctx.fillText("Crest", lx - lineLen - 4, midY);' +
 '  }' +
 '  ctx.globalAlpha = 1.0;' +
 '}' +
