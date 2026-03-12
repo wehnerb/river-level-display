@@ -105,6 +105,13 @@ export default {
       // ----------------------------------------------------------
       // 1. Parse URL parameters: ?gauge= and ?layout=
       // ----------------------------------------------------------
+
+      // Only GET requests are valid for this Worker.
+      // All other HTTP methods are rejected immediately before any processing occurs.
+      if (request.method !== 'GET') {
+        return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET' } });
+}
+      
       const url = new URL(request.url);
 
       // Resolve the gauge from ?gauge=, falling back to DEFAULT_GAUGE
@@ -262,28 +269,38 @@ export default {
       // 8. Render and return the HTML page
       // ----------------------------------------------------------
       const html = buildHtml(layout, layoutKey, chartData);
-
+         
       return new Response(html, {
-        headers: {
-          'Content-Type':  'text/html; charset=utf-8',
-          // Do NOT cache the rendered HTML page in the browser or at the
+  headers: {
+    'Content-Type':           'text/html; charset=utf-8',
+     // Do NOT cache the rendered HTML page in the browser or at the
           // Cloudflare edge.  The meta refresh tag fires every CACHE_SECONDS;
           // if the browser served a cached copy on refresh instead of making
           // a real network request, the displayed data would never update.
           // The upstream NOAA fetch is separately cached by Cloudflare via
           // cf.cacheTtl in fetchOpts, so NOAA API load is still controlled.
-          'Cache-Control': 'no-store',
-        },
-      });
+    'Cache-Control':          'no-store',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options':        'SAMEORIGIN',
+    'Referrer-Policy':        'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';",
+  },
+});
 
     } catch (err) {
       // Return a styled error page rather than a raw 500 response.
       // The page auto-refreshes every 60 seconds so it will recover
       // as soon as the upstream API becomes available again.
       return new Response(buildErrorHtml(), {
-        status: 200, // Return 200 so the display does not blank out
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      });
+  status: 200, // return 200 so the display does not blank out
+  headers: {
+    'Content-Type':           'text/html; charset=utf-8',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options':        'SAMEORIGIN',
+    'Referrer-Policy':        'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline';",
+  },
+});
     }
   },
 };
@@ -387,7 +404,18 @@ function buildHtml(layout, layoutKey, data) {
 
   // Serialize chart data for injection -- JSON.stringify produces
   // valid JavaScript literal syntax safe to embed in a script tag.
-  const dataJson = JSON.stringify(data);
+  // Escape characters that can break out of a <script> block in an HTML context.
+// JSON.stringify does not escape < > or & characters, so a string value in the
+// API response containing </script> would cause the browser's HTML parser to close
+// the script tag prematurely, potentially allowing injected markup to execute.
+// Unicode escaping these three characters makes the JSON safe to embed as a
+// JavaScript literal inside a <script> element. The JavaScript engine correctly
+// interprets \u003c as <, \u003e as >, and \u0026 as & at runtime, so DATA
+// will contain the correct values when the chart renderer reads it.
+const dataJson = JSON.stringify(data)
+  .replace(/</g, '\\u003c')
+  .replace(/>/g, '\\u003e')
+  .replace(/&/g, '\\u0026');
 
   // --------------------------------------------------------
   // All chart rendering logic lives inside the IIFE below.
@@ -1103,6 +1131,6 @@ function buildErrorHtml() {
 '</style></head><body>' +
 '<div class="icon">&#9888;</div>' +
 '<div class="msg">GAUGE DATA UNAVAILABLE</div>' +
-'<div class="sub">Will retry automatically &mdash; NOAA NWPS / FGON8</div>' +
+'<div class="sub">Will retry automatically &mdash; data source temporarily unavailable</div>' +
 '</body></html>';
 }
