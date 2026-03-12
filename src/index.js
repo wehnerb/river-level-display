@@ -105,6 +105,13 @@ export default {
       // ----------------------------------------------------------
       // 1. Parse URL parameters: ?gauge= and ?layout=
       // ----------------------------------------------------------
+
+      // Only GET requests are valid for this Worker.
+      // All other HTTP methods are rejected immediately before any processing occurs.
+      if (request.method !== 'GET') {
+        return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET' } });
+}
+      
       const url = new URL(request.url);
 
       // Resolve the gauge from ?gauge=, falling back to DEFAULT_GAUGE
@@ -387,7 +394,18 @@ function buildHtml(layout, layoutKey, data) {
 
   // Serialize chart data for injection -- JSON.stringify produces
   // valid JavaScript literal syntax safe to embed in a script tag.
-  const dataJson = JSON.stringify(data);
+  // Escape characters that can break out of a <script> block in an HTML context.
+// JSON.stringify does not escape < > or & characters, so a string value in the
+// API response containing </script> would cause the browser's HTML parser to close
+// the script tag prematurely, potentially allowing injected markup to execute.
+// Unicode escaping these three characters makes the JSON safe to embed as a
+// JavaScript literal inside a <script> element. The JavaScript engine correctly
+// interprets \u003c as <, \u003e as >, and \u0026 as & at runtime, so DATA
+// will contain the correct values when the chart renderer reads it.
+const dataJson = JSON.stringify(data)
+  .replace(/</g, '\\u003c')
+  .replace(/>/g, '\\u003e')
+  .replace(/&/g, '\\u0026');
 
   // --------------------------------------------------------
   // All chart rendering logic lives inside the IIFE below.
