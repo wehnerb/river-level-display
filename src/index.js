@@ -966,7 +966,7 @@ function buildHtml(layout, layoutKey, data) {
 '    ctx.fillStyle = "#8899bb";' +
 '    ctx.textAlign = "right";' +
 '    ctx.textBaseline = "middle";' +
-'    ctx.fillText("Forecast Crest", lx - lineLen - 4, midY);' +
+'    ctx.fillText("Crest", lx - lineLen - 4, midY);' +
 '  }' +
 '  ctx.globalAlpha = 1.0;' +
 '}' +
