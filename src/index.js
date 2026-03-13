@@ -275,14 +275,11 @@ export default {
 
       return new Response(html, {
         headers: {
-          'Content-Type':  'text/html; charset=utf-8',
-          // Do NOT cache the rendered HTML page in the browser or at the
-          // Cloudflare edge.  The meta refresh tag fires every CACHE_SECONDS;
-          // if the browser served a cached copy on refresh instead of making
-          // a real network request, the displayed data would never update.
-          // The upstream NOAA fetch is separately cached by Cloudflare via
-          // cf.cacheTtl in fetchOpts, so NOAA API load is still controlled.
-          'Cache-Control': 'no-store',
+          'Content-Type':            'text/html; charset=utf-8',
+          'Cache-Control':           'no-store',
+          'X-Content-Type-Options':  'nosniff',
+          'Referrer-Policy':         'no-referrer',
+          'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';",
         },
       });
 
