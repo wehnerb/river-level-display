@@ -289,7 +289,12 @@ export default {
       // as soon as the upstream API becomes available again.
       return new Response(buildErrorHtml(), {
         status: 200, // Return 200 so the display does not blank out
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: {
+          'Content-Type':            'text/html; charset=utf-8',
+          'X-Content-Type-Options':  'nosniff',
+          'Referrer-Policy':         'no-referrer',
+          'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline';",
+        },
       });
     }
   },
