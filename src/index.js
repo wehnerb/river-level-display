@@ -385,9 +385,20 @@ function buildHtml(layout, layoutKey, data) {
   const isNarrow = layout.width <= 558;
   const isWide   = layout.width >= 1735;
 
-  // Serialize chart data for injection -- JSON.stringify produces
-  // valid JavaScript literal syntax safe to embed in a script tag.
-  const dataJson = JSON.stringify(data);
+  // Serialize chart data for injection into a <script> block.
+  // JSON.stringify does not escape < > or & characters, so a string
+  // value in the API response containing </script> could cause the
+  // browser's HTML parser to close the script tag prematurely,
+  // potentially allowing injected content to execute.
+  // Unicode-escaping these three characters makes the JSON safe to
+  // embed as a JavaScript literal inside a <script> element. The
+  // JavaScript engine correctly interprets \u003c as <, \u003e as >,
+  // and \u0026 as & at runtime, so DATA will contain the correct
+  // values when the chart renderer reads it.
+  const dataJson = JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
 
   // --------------------------------------------------------
   // All chart rendering logic lives inside the IIFE below.
