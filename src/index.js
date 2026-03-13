@@ -103,6 +103,16 @@ export default {
   async fetch(request, env, ctx) {
     try {
       // ----------------------------------------------------------
+      // 0. Method filter — reject anything that is not a GET request.
+      // All valid display screen requests are GET. Any other method
+      // (POST, PUT, DELETE, etc.) is rejected immediately before any
+      // processing occurs.
+      // ----------------------------------------------------------
+      if (request.method !== 'GET') {
+        return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET' } });
+      }
+
+      // ----------------------------------------------------------
       // 1. Parse URL parameters: ?gauge= and ?layout=
       // ----------------------------------------------------------
       const url = new URL(request.url);
