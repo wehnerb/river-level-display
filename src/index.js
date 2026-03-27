@@ -70,6 +70,15 @@ const THRESHOLD_LOOKAHEAD_FT = 3.0;
 const CREST_MIN_FLANK_POINTS  = 4;
 const CREST_MIN_PROMINENCE_FT = 0.5;
 
+// Plausible stage range (feet).  Any reading outside this range is
+// treated as a sentinel / fill value and discarded before charting.
+// NOAA uses -9999 to indicate a missing or invalid reading; without
+// this filter those values corrupt the Y-axis scale entirely.
+// The bounds below are intentionally generous to accommodate any
+// future gauges added to the GAUGES registry.
+const STAGE_PLAUSIBLE_MIN = -20;   // below datum is possible but rare
+const STAGE_PLAUSIBLE_MAX = 150;   // well above any realistic flood stage
+
 // Layout pixel dimensions.  These match the station display
 // column widths defined in the station-image-proxy project.
 const LAYOUTS = {
@@ -173,6 +182,10 @@ export default {
       //    Each element from the API has shape:
       //      { validTime: "2025-03-10T14:00:00Z", primary: 12.34 }
       //    where `primary` is stage in feet.
+      //
+      //    Values outside STAGE_PLAUSIBLE_MIN/MAX are discarded.
+      //    NOAA uses -9999 as a sentinel for missing readings; without
+      //    this check those values corrupt the Y-axis scale entirely.
       // ----------------------------------------------------------
       const now = Date.now();
       const observedCutoff = now - OBSERVED_HOURS * 60 * 60 * 1000;
@@ -183,11 +196,16 @@ export default {
           t: new Date(d.validTime).getTime(),
           v: parseFloat(d.primary),
         }))
-        .filter(d => !isNaN(d.t) && !isNaN(d.v) && d.t >= observedCutoff)
+        .filter(d =>
+          !isNaN(d.t) && !isNaN(d.v) &&
+          d.t >= observedCutoff &&
+          d.v >= STAGE_PLAUSIBLE_MIN && d.v <= STAGE_PLAUSIBLE_MAX
+        )
         .sort((a, b) => a.t - b.t);
 
       // ----------------------------------------------------------
       // 5. Extract NWS forecast data (future timestamps only).
+      //    Same plausibility filter applied as for observed data.
       // ----------------------------------------------------------
       const forecast = (stageflow?.forecast?.data ?? [])
         .filter(d => d.primary !== null && d.primary !== undefined)
@@ -195,7 +213,11 @@ export default {
           t: new Date(d.validTime).getTime(),
           v: parseFloat(d.primary),
         }))
-        .filter(d => !isNaN(d.t) && !isNaN(d.v) && d.t > now)
+        .filter(d =>
+          !isNaN(d.t) && !isNaN(d.v) &&
+          d.t > now &&
+          d.v >= STAGE_PLAUSIBLE_MIN && d.v <= STAGE_PLAUSIBLE_MAX
+        )
         .sort((a, b) => a.t - b.t);
 
       // ----------------------------------------------------------
@@ -269,13 +291,19 @@ export default {
       };
 
       // ----------------------------------------------------------
-      // 8. Render and return the HTML page
+      // 9. Render and return the HTML page
       // ----------------------------------------------------------
       const html = buildHtml(layout, layoutKey, chartData);
 
       return new Response(html, {
         headers: {
           'Content-Type':            'text/html; charset=utf-8',
+          // Do NOT cache the rendered HTML page in the browser or at the
+          // Cloudflare edge.  The meta refresh tag fires every CACHE_SECONDS;
+          // if the browser served a cached copy on refresh instead of making
+          // a real network request, the displayed data would never update.
+          // The upstream NOAA fetch is separately cached by Cloudflare via
+          // cf.cacheTtl in fetchOpts, so NOAA API load is still controlled.
           'Cache-Control':           'no-store',
           'X-Content-Type-Options':  'nosniff',
           'Referrer-Policy':         'no-referrer',
@@ -484,11 +512,9 @@ function buildHtml(layout, layoutKey, data) {
   // Header height reserved for station name / stage / status badge
 '  var headerH = IS_NARROW ? 80 : IS_WIDE ? 120 : 104;' +
 
-  // Footer height reserved for attribution text
-
 '  drawHeader(headerH, titleFont, stageFont, baseFont, labelFont);' +
 
-  // Chart occupies the space between header and footer
+  // Chart occupies the space between header and bottom label margin
 '  var chartTop    = headerH + 6;' +
 '  var xLabelH    = IS_NARROW ? 20 : IS_WIDE ? 24 : 22;' +
 '  var chartBottom = H - xLabelH;' +
@@ -569,9 +595,6 @@ function buildHtml(layout, layoutKey, data) {
 '  ctx.fillText("Updated: " + DATA.lastUpdated, pad, headerH - pad);' +
 '}' +
 
-// ============================================================
-// DRAW FOOTER  (attribution)
-// ============================================================
 // ============================================================
 // DRAW CHART AREA  (axes, grid, threshold lines, data lines)
 // ============================================================
@@ -929,7 +952,7 @@ function buildHtml(layout, layoutKey, data) {
 '}' +
 
 // ============================================================
-// DRAW LEGEND  (top-left corner of chart area)
+// DRAW LEGEND  (top-right corner of chart area)
 // ============================================================
 'function drawLegend(cx, cy, cw, lyStart, labelFont) {' +
 '  var pad     = IS_NARROW ? 6  : IS_WIDE ? 12 : 8;' +
