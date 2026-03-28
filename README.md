@@ -59,7 +59,7 @@ https://river-level-display.bwehner.workers.dev/?layout=full
 
 ## Chart Features
 
-- **Observed line** — 72 hours of recorded stage with a gradient fill
+- **Observed line** — 120 hours of recorded stage with a gradient fill
 - **Forecast line** — NWS official forecast shown as a dashed amber line
 - **Flood thresholds** — Action / Minor / Moderate / Major lines, shown only when within 3 ft of the data maximum to avoid clutter at normal river levels
 - **Crest marker** — Diamond + label when the river has peaked and the descent is confirmed by at least 4 data points (~2 hours) on each side
@@ -82,7 +82,7 @@ const GAUGES = {
 };
 const DEFAULT_GAUGE = 'fargo';
 
-const OBSERVED_HOURS          = 72;    // hours of history to show
+const OBSERVED_HOURS          = 120;    // hours of history to show
 const CACHE_SECONDS           = 900;   // Cloudflare cache TTL (15 min)
 const Y_AXIS_PADDING          = 1.5;   // ft of padding above/below data range
 const THRESHOLD_LOOKAHEAD_FT  = 3.0;   // show threshold only if within this many ft of data max
