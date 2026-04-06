@@ -4,6 +4,9 @@ A Cloudflare Worker that fetches live river gauge data from the NOAA NWPS public
 
 ---
 
+## System Documentation
+Full system documentation is maintained at: https://github.com/wehnerb/ffd-display-system-documentation
+
 ## What It Does
 
 When a display screen loads the Worker URL, the Worker:
