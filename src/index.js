@@ -92,6 +92,10 @@ const DEFAULT_LAYOUT = 'split';
 // Timezone used for all X-axis date/time labels
 const DISPLAY_TZ = 'America/Chicago';
 
+// Background color used when ?bg=dark is set.
+// Matches the probationary-firefighter-display dark testing background.
+const DARK_BG_COLOR = '#111111';
+
 
 // ============================================================
 // FLOOD THRESHOLD COLORS
@@ -138,6 +142,10 @@ export default {
         ? layoutParam
         : DEFAULT_LAYOUT;
       const layout = LAYOUTS[layoutKey];
+
+      // ?bg=dark renders with a solid dark background for browser-based testing.
+      // Matches the probationary-firefighter-display ?bg=dark parameter behaviour.
+      const darkBg = url.searchParams.get('bg') === 'dark';
 
       // ----------------------------------------------------------
       // 2. Fetch gauge metadata and stage/flow time series
@@ -293,7 +301,7 @@ export default {
       // ----------------------------------------------------------
       // 9. Render and return the HTML page
       // ----------------------------------------------------------
-      const html = buildHtml(layout, layoutKey, chartData);
+      const html = buildHtml(layout, layoutKey, chartData, darkBg);
 
       return new Response(html, {
         headers: {
@@ -460,7 +468,7 @@ function escapeHtml(str) {
 // white-tinted surfaces, consistent font) while the chart maths
 // remain unchanged inside the IIFE.
 // ============================================================
-function buildHtml(layout, layoutKey, data) {
+function buildHtml(layout, layoutKey, data, darkBg) {
 
   // Derived layout flags
   const isNarrow = layout.width <= 558;
@@ -558,7 +566,8 @@ function buildHtml(layout, layoutKey, data) {
     '  overflow: hidden;' +
     // full layout fills the screen and needs a solid background;
     // all other layouts are transparent so hardware texture shows through.
-    '  background: ' + (isFull ? '#111111' : 'transparent') + ';' +
+    // ?bg=dark overrides to a solid background for browser-based testing.
+    '  background: ' + (darkBg || isFull ? DARK_BG_COLOR : 'transparent') + ';' +
     '  font-family: "Segoe UI", Arial, Helvetica, sans-serif;' +
     '  color: rgba(255,255,255,0.92);' +
     '}' +
