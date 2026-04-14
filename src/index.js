@@ -1179,8 +1179,8 @@ function buildErrorHtml() {
     '  font-family:"Segoe UI",Arial,Helvetica,sans-serif;' +
     '}' +
     '.icon { font-size:48px; margin-bottom:16px; color:' + FLOOD_COLORS.major + '; }' +
-    '.msg  { color:rgba(255,255,255,0.92); font-size:16px; font-weight:bold; }' +
-    '.sub  { color:rgba(255,255,255,0.45); font-size:12px; margin-top:8px; }' +
+    '.msg  { color:#C8102E; font-size:16px; font-weight:bold; }' +
+    '.sub  { color:rgba(255,255,255,0.92); font-size:12px; margin-top:8px; }' +
     '</style></head><body>' +
     '<div class="icon">&#9888;</div>' +
     '<div class="msg">GAUGE DATA UNAVAILABLE</div>' +
