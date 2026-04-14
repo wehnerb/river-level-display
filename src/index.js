@@ -1184,7 +1184,7 @@ function buildErrorHtml() {
     '</style></head><body>' +
     '<div class="icon">&#9888;</div>' +
     '<div class="msg">GAUGE DATA UNAVAILABLE</div>' +
-    '<div class="sub">Will retry automatically &mdash; data source temporarily unavailable</div>' +
+    '<div class="sub">Retrying shortly</div>' +
     '</body></html>'
   );
 }
