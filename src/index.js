@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from './shared/fetch-helpers.js';
 // ============================================================
 // river-level-display  -  src/index.js
 //
@@ -114,6 +115,7 @@ const FLOOD_COLORS = {
 // ============================================================
 export default {
   async fetch(request, env, ctx) {
+    let darkBg = false;
     try {
       // ----------------------------------------------------------
       // 0. Method filter — reject anything that is not a GET request.
@@ -145,7 +147,7 @@ export default {
 
       // ?bg=dark renders with a solid dark background for browser-based testing.
       // Matches the probationary-firefighter-display ?bg=dark parameter behaviour.
-      const darkBg = url.searchParams.get('bg') === 'dark';
+      darkBg = url.searchParams.get('bg') === 'dark';
 
       // ----------------------------------------------------------
       // 2. Fetch gauge metadata and stage/flow time series
@@ -162,9 +164,12 @@ export default {
       };
 
       const [metaRes, stageRes] = await Promise.all([
-        fetch(NOAA_BASE + '/gauges/' + gauge.id, fetchOpts),
-        fetch(NOAA_BASE + '/gauges/' + gauge.id + '/stageflow', fetchOpts),
+        fetchWithTimeout(NOAA_BASE + '/gauges/' + gauge.id, fetchOpts, 8000),
+        fetchWithTimeout(NOAA_BASE + '/gauges/' + gauge.id + '/stageflow', fetchOpts, 8000),
       ]);
+
+      if (!metaRes.ok)  throw new Error('NOAA metadata fetch failed: ' + metaRes.status);
+      if (!stageRes.ok) throw new Error('NOAA stageflow fetch failed: ' + stageRes.status);
 
       // Parse both JSON responses
       const [meta, stageflow] = await Promise.all([
@@ -320,10 +325,11 @@ export default {
       });
 
     } catch (err) {
+      console.error('river-level-display: unhandled error:', err && err.message ? err.message : err);
       // Return a styled error page rather than a raw 500 response.
       // The page auto-refreshes every 60 seconds so it will recover
       // as soon as the upstream API becomes available again.
-      return new Response(buildErrorHtml(), {
+      return new Response(buildErrorHtml(darkBg), {
         status: 200, // Return 200 so the display does not blank out
         headers: {
           'Content-Type':            'text/html; charset=utf-8',
@@ -1163,7 +1169,7 @@ function buildHtml(layout, layoutKey, data, darkBg) {
 // fails (e.g. NOAA API unreachable).  Auto-refreshes every 60
 // seconds so the display recovers without manual intervention.
 // ============================================================
-function buildErrorHtml() {
+function buildErrorHtml(darkBg) {
   return (
     '<!DOCTYPE html>' +
     '<html lang="en"><head>' +
@@ -1173,7 +1179,7 @@ function buildErrorHtml() {
     '*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }' +
     'html, body {' +
     '  width:100vw; height:100vh; overflow:hidden;' +
-    '  background:transparent;' +
+    '  background:' + (darkBg ? DARK_BG_COLOR : 'transparent') + ';' +
     '  display:flex; align-items:center; justify-content:center;' +
     '  flex-direction:column;' +
     '  font-family:"Segoe UI",Arial,Helvetica,sans-serif;' +
