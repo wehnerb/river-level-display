@@ -1,4 +1,7 @@
 import { fetchWithTimeout } from './shared/fetch-helpers.js';
+import { escapeHtml, sanitizeParam } from './shared/html.js';
+import { DARK_BG_COLOR, FONT_STACK, ACCENT_COLOR, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_TERTIARY, BORDER_SUBTLE, BORDER_STRONG, CARD_BASE, CARD_ELEVATED, CARD_HEADER, CARD_RECESSED } from './shared/colors.js';
+import { LAYOUTS } from './shared/layouts.js';
 // ============================================================
 // river-level-display  -  src/index.js
 //
@@ -80,22 +83,11 @@ const CREST_MIN_PROMINENCE_FT = 0.5;
 const STAGE_PLAUSIBLE_MIN = -20;   // below datum is possible but rare
 const STAGE_PLAUSIBLE_MAX = 150;   // well above any realistic flood stage
 
-// Layout pixel dimensions.  These match the station display
-// column widths defined in the station-image-proxy project.
-const LAYOUTS = {
-  wide:  { width: 1735, height: 720  },  // full-width single column
-  split: { width: 852,  height: 720  },  // two-column display (default)
-  tri:   { width: 558,  height: 720  },  // three-column display
-  full:  { width: 1920, height: 1075 },  // full-screen display
-};
 const DEFAULT_LAYOUT = 'split';
 
 // Timezone used for all X-axis date/time labels
 const DISPLAY_TZ = 'America/Chicago';
 
-// Background color used when ?bg=dark is set.
-// Matches the probationary-firefighter-display dark testing background.
-const DARK_BG_COLOR = '#111111';
 
 
 // ============================================================
@@ -436,22 +428,6 @@ function findCrest(combined) {
 
 
 // ============================================================
-// HELPER: Escape characters with special meaning in HTML.
-// Applied to all NOAA API strings injected into the HTML header
-// to prevent unexpected rendering if the API returns unusual text.
-// ============================================================
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g,  '&amp;')
-    .replace(/</g,  '&lt;')
-    .replace(/>/g,  '&gt;')
-    .replace(/"/g,  '&quot;')
-    .replace(/'/g,  '&#39;');
-}
-
-
-// ============================================================
 // BUILD HTML PAGE
 //
 // Renders a complete self-contained HTML page for the river level
@@ -574,8 +550,8 @@ function buildHtml(layout, layoutKey, data, darkBg) {
     // all other layouts are transparent so hardware texture shows through.
     // ?bg=dark overrides to a solid background for browser-based testing.
     '  background: ' + (darkBg || isFull ? DARK_BG_COLOR : 'transparent') + ';' +
-    '  font-family: "Segoe UI", Arial, Helvetica, sans-serif;' +
-    '  color: rgba(255,255,255,0.92);' +
+    '  font-family: ' + FONT_STACK + ';' +
+    '  color: ' + TEXT_PRIMARY + ';' +
     '}' +
 
     // Outer flex column containing the two cards.
@@ -589,8 +565,8 @@ function buildHtml(layout, layoutKey, data, darkBg) {
 
     // Header card — station name, stage, and flood badge.
     '.header-card {' +
-    '  background: rgba(255,255,255,0.10);' +
-    '  border: 1px solid rgba(255,255,255,0.10);' +
+    '  background: ' + CARD_ELEVATED + ';' +
+    '  border: 1px solid ' + BORDER_SUBTLE + ';' +
     '  border-radius: 6px;' +
     '  height: '  + hdrH + 'px;' +
     '  padding: 0 ' + Math.floor(hdrH * 0.16) + 'px;' +
@@ -603,7 +579,7 @@ function buildHtml(layout, layoutKey, data, darkBg) {
     '.hdr-info { flex: 1; min-width: 0; }' +
     '.hdr-sub {' +
     '  font-size: '    + subFont + 'px;' +
-    '  color: rgba(255,255,255,0.68);' +
+    '  color: ' + TEXT_SECONDARY + ';' +
     '  text-transform: uppercase; letter-spacing: 0.10em;' +
     '  margin-bottom: ' + Math.floor(subFont * 0.3) + 'px;' +
     '}' +
@@ -614,7 +590,7 @@ function buildHtml(layout, layoutKey, data, darkBg) {
     '}' +
     '.hdr-meta {' +
     '  font-size: '    + metaFont + 'px;' +
-    '  color: rgba(255,255,255,0.38);' +
+    '  color: ' + TEXT_TERTIARY + ';' +
     '  margin-top: '   + Math.floor(metaFont * 0.3) + 'px;' +
     '}' +
 
@@ -622,7 +598,7 @@ function buildHtml(layout, layoutKey, data, darkBg) {
     '.hdr-stage { text-align: center; flex-shrink: 0; }' +
     '.hdr-stage-lbl {' +
     '  font-size: '    + subFont + 'px;' +
-    '  color: rgba(255,255,255,0.68);' +
+    '  color: ' + TEXT_SECONDARY + ';' +
     '  text-transform: uppercase; letter-spacing: 0.08em;' +
     '  margin-bottom: 2px;' +
     '}' +
@@ -648,8 +624,8 @@ function buildHtml(layout, layoutKey, data, darkBg) {
 
     // Chart card — white-tinted container for the canvas and legend.
     '.chart-card {' +
-    '  background: rgba(255,255,255,0.06);' +
-    '  border: 1px solid rgba(255,255,255,0.10);' +
+    '  background: ' + CARD_BASE + ';' +
+    '  border: 1px solid ' + BORDER_SUBTLE + ';' +
     '  border-radius: 6px;' +
     '  flex: 1; min-height: 0;' +
     '  display: flex; flex-direction: column;' +
@@ -661,13 +637,13 @@ function buildHtml(layout, layoutKey, data, darkBg) {
 
     // Legend strip — HTML row of labelled line/symbol samples.
     '.legend {' +
-    '  border-top: 1px solid rgba(255,255,255,0.10);' +
+    '  border-top: 1px solid ' + BORDER_SUBTLE + ';' +
     '  display: flex; flex-direction: row; align-items: center;' +
     '  gap: '      + Math.floor(legendH * 0.50) + 'px;' +
     '  padding: 0 ' + Math.floor(legendH * 0.40) + 'px;' +
     '  height: '   + legendH + 'px;' +
     '  font-size: ' + legendFont + 'px;' +
-    '  color: rgba(255,255,255,0.68);' +
+    '  color: ' + TEXT_SECONDARY + ';' +
     '  flex-shrink: 0;' +
     '}' +
     '.legend-item { display: flex; align-items: center; gap: 6px; }';
@@ -813,7 +789,7 @@ function buildHtml(layout, layoutKey, data, darkBg) {
 
     // ----- Y axis: grid lines -----
     '  var yTicks = calcNiceTicks(yMin, yMax, IS_NARROW ? 5 : IS_WIDE ? 9 : 7);' +
-    '  ctx.strokeStyle = "rgba(255,255,255,0.10)";' +
+    '  ctx.strokeStyle = "' + BORDER_SUBTLE + '";' +
     '  ctx.lineWidth = 1;' +
     '  ctx.setLineDash([]);' +
     '  yTicks.forEach(function(tick) {' +
@@ -846,7 +822,7 @@ function buildHtml(layout, layoutKey, data, darkBg) {
 
     // ----- X axis: grid lines -----
     '  var xTicks = calcAdaptiveTicks(tMin, tMax, cw);' +
-    '  ctx.strokeStyle = "rgba(255,255,255,0.10)";' +
+    '  ctx.strokeStyle = "' + BORDER_SUBTLE + '";' +
     '  ctx.lineWidth = 1;' +
     '  xTicks.forEach(function(tick) {' +
     '    var x = toX(tick.t);' +
@@ -1182,11 +1158,11 @@ function buildErrorHtml(darkBg) {
     '  background:' + (darkBg ? DARK_BG_COLOR : 'transparent') + ';' +
     '  display:flex; align-items:center; justify-content:center;' +
     '  flex-direction:column;' +
-    '  font-family:"Segoe UI",Arial,Helvetica,sans-serif;' +
+    '  font-family:' + FONT_STACK + ';' +
     '}' +
     '.icon { font-size:48px; margin-bottom:16px; color:' + FLOOD_COLORS.major + '; }' +
-    '.msg  { color:#C8102E; font-size:16px; font-weight:bold; }' +
-    '.sub  { color:rgba(255,255,255,0.92); font-size:12px; margin-top:8px; }' +
+    '.msg  { color:' + ACCENT_COLOR + '; font-size:16px; font-weight:bold; }' +
+    '.sub  { color:' + TEXT_PRIMARY + '; font-size:12px; margin-top:8px; }' +
     '</style></head><body>' +
     '<div class="icon">&#9888;</div>' +
     '<div class="msg">GAUGE DATA UNAVAILABLE</div>' +
