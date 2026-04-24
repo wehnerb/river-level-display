@@ -129,7 +129,7 @@ export default {
         var healthDetail = '';
 
         try {
-          var probeUrl = NOAA_BASE + DEFAULT_GAUGE + '/metadata';
+          var probeUrl = NOAA_BASE + '/gauges/' + DEFAULT_GAUGE + '/stageflow';
           var probeRes = await fetchWithTimeout(probeUrl, {}, 5000);
           if (probeRes.ok) {
             healthDetail = 'noaa-nwps: reachable';
