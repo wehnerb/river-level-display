@@ -124,6 +124,38 @@ export default {
       // ----------------------------------------------------------
       const url = new URL(request.url);
 
+      if (url.pathname === '/healthz') {
+        var healthStatus = 'healthy';
+        var healthDetail = '';
+
+        try {
+          var probeUrl = NOAA_BASE + DEFAULT_GAUGE + '/metadata';
+          var probeRes = await fetchWithTimeout(probeUrl, {}, 5000);
+          if (probeRes.ok) {
+            healthDetail = 'noaa-nwps: reachable';
+          } else {
+            healthStatus = 'degraded';
+            healthDetail = 'noaa-nwps: unexpected status ' + probeRes.status;
+          }
+        } catch (e) {
+          healthStatus = 'degraded';
+          healthDetail = 'noaa-nwps: unreachable (' + (e && e.message ? e.message : String(e)) + ')';
+        }
+
+        return new Response(
+          'status: ' + healthStatus + '\n' +
+          'worker: river-level-display\n' +
+          healthDetail + '\n',
+          {
+            status: healthStatus === 'healthy' ? 200 : 503,
+            headers: {
+              'Content-Type':  'text/plain; charset=UTF-8',
+              'Cache-Control': 'no-store',
+            },
+          }
+        );
+      }
+
       // Resolve the gauge from ?gauge=, falling back to DEFAULT_GAUGE
       // if the parameter is missing or not found in the registry.
       const gaugeParam = url.searchParams.get('gauge');
